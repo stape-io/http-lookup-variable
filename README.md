@@ -1,6 +1,8 @@
 # HTTP Lookup Variable for Google Tag Manager Server Side 
 
-TBD
+
+HTTP Lookup Variable for Google Tag Manager container is for making HTTP requests. It works with Promises.
+
 
 ## Open Source
 
