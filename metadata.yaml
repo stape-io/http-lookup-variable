@@ -1,4 +1,6 @@
 homepage: "https://stape.io/"
 versions:
+  - sha: 4bdb156b48cdbf066e1eb46467783eecce791497
+    changeNotes: Add follow redirect.
   - sha: 944786d0c39e6b14ab514577e5578f7317e9e3a2
     changeNotes: Initial release.
