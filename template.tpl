@@ -326,15 +326,23 @@ if (data.requestTimeout) {
     requestOptions.timeout = makeInteger(data.requestTimeout);
 }
 
-return sendHttpRequest(data.url, requestOptions, postBody).then((successResult) => {
-    if (!data.jsonParse) {
-        return successResult.body;
-    }
+return sendRequest(data.url, requestOptions, postBody);
 
-    let parsedBody = JSON.parse(successResult.body);
+function sendRequest(url, requestOptions, postBody) {
+    return sendHttpRequest(url, requestOptions, postBody).then((successResult) => {
+        if (successResult.statusCode === 301 || successResult.statusCode === 302) {
+            return sendRequest(successResult.headers['location'], requestOptions, postBody);
+        }
 
-    return data.jsonParseKey ? parsedBody[data.jsonParseKeyName] : parsedBody;
-});
+        if (!data.jsonParse) {
+            return successResult.body;
+        }
+
+        let parsedBody = JSON.parse(successResult.body);
+
+        return data.jsonParseKey ? parsedBody[data.jsonParseKeyName] : parsedBody;
+    });
+}
 
 function createSimpleObject() {
     return makeTableMap(data.data, 'key', 'value');
