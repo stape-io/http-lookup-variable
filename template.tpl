@@ -130,6 +130,13 @@ ___TEMPLATE_PARAMETERS___
   },
   {
     "type": "CHECKBOX",
+    "name": "storeResponse",
+    "checkboxText": "Store response in cache",
+    "simpleValueType": true,
+    "help": "Store the response in Template Storage. If all parameters of the request are the same response will be taken from the cache if it exists."
+  },
+  {
+    "type": "CHECKBOX",
     "name": "jsonParseKey",
     "checkboxText": "Extract key from JSON object",
     "simpleValueType": true,
@@ -271,6 +278,8 @@ const makeInteger = require('makeInteger');
 const makeTableMap = require('makeTableMap');
 const JSON = require('JSON');
 const encodeUriComponent = require('encodeUriComponent');
+const templateDataStorage = require('templateDataStorage');
+const sha256Sync = require('sha256Sync');
 
 let requestHeaders = {};
 let requestBody = {};
@@ -329,18 +338,31 @@ if (data.requestTimeout) {
 return sendRequest(data.url, requestOptions, postBody);
 
 function sendRequest(url, requestOptions, postBody) {
+    let cacheKey = sha256Sync(url + JSON.stringify(requestOptions) + postBody);
+
+    if (data.storeResponse) {
+        const cachedBody = templateDataStorage.getItemCopy(cacheKey);
+
+        if (cachedBody) return cachedBody;
+    }
+
     return sendHttpRequest(url, requestOptions, postBody).then((successResult) => {
         if (successResult.statusCode === 301 || successResult.statusCode === 302) {
             return sendRequest(successResult.headers['location'], requestOptions, postBody);
         }
 
         if (!data.jsonParse) {
+            if (data.storeResponse) templateDataStorage.setItemCopy(cacheKey, successResult.body);
+
             return successResult.body;
         }
 
-        let parsedBody = JSON.parse(successResult.body);
+        const parsedBody = JSON.parse(successResult.body);
+        const result = data.jsonParseKey ? parsedBody[data.jsonParseKeyName] : parsedBody;
 
-        return data.jsonParseKey ? parsedBody[data.jsonParseKeyName] : parsedBody;
+        if (data.storeResponse) templateDataStorage.setItemCopy(cacheKey, result);
+
+        return result;
     });
 }
 
@@ -421,6 +443,16 @@ ___SERVER_PERMISSIONS___
     },
     "clientAnnotations": {
       "isEditedByUser": true
+    },
+    "isRequired": true
+  },
+  {
+    "instance": {
+      "key": {
+        "publicId": "access_template_storage",
+        "versionId": "1"
+      },
+      "param": []
     },
     "isRequired": true
   }
