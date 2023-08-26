@@ -63,7 +63,7 @@ if (data.requestTimeout) {
 return sendRequest(data.url, requestOptions, postBody);
 
 function sendRequest(url, requestOptions, postBody) {
-    let cacheKey = sha256Sync(url + JSON.stringify(requestOptions) + postBody);
+    let cacheKey = sha256Sync(url + JSON.stringify(requestOptions) + postBody + data.jsonParseKeyName);
 
     if (data.storeResponse) {
         const cachedBody = templateDataStorage.getItemCopy(cacheKey);
