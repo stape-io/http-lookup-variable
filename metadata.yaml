@@ -1,5 +1,7 @@
 homepage: "https://stape.io/"
 versions:
+  - sha: 1d6ae7c7eefee20ed48210657c0a5fce1a1107c3
+    changeNotes: Store original body to cache.
   - sha: f12e5ac0df338b5aa19b69f1db95082376e0221a
     changeNotes: Cache option fix.
   - sha: 28b8d3a2b25bb542cbe3bca0ad913bc6e1a8f9fd
