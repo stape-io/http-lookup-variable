@@ -10,138 +10,139 @@ let requestHeaders = {};
 let requestBody = {};
 
 if (data.requestMethod !== 'GET') {
-    requestHeaders = data.requestType === 'json' ? {'Content-Type': 'application/json'} : {'Content-Type': 'application/x-www-form-urlencoded'};
+  requestHeaders = data.requestType === 'json' ? { 'Content-Type': 'application/json' } : { 'Content-Type': 'application/x-www-form-urlencoded' };
 
-    if (data.data) {
-        let postBodyCustomData = data.simpleObject || data.requestType !== 'json' ? createSimpleObject() : createNestedObject();
+  if (data.data) {
+    let postBodyCustomData = data.simpleObject || data.requestType !== 'json' ? createSimpleObject() : createNestedObject();
 
-        for (let key in postBodyCustomData) {
-            requestBody[key] = postBodyCustomData[key];
-        }
+    for (let key in postBodyCustomData) {
+      requestBody[key] = postBodyCustomData[key];
     }
+  }
 }
 
 if (data.headers) {
-    for (let key in data.headers) {
-        requestHeaders[data.headers[key].key] = data.headers[key].value;
-    }
+  for (let key in data.headers) {
+    requestHeaders[data.headers[key].key] = data.headers[key].value;
+  }
 }
 
 if (data.insideArray && data.requestType === 'json') {
-    requestBody = [requestBody];
+  requestBody = [requestBody];
 }
 
-
 let postBody = null;
-let requestOptions = {headers: requestHeaders, method: data.requestMethod};
+let requestOptions = { headers: requestHeaders, method: data.requestMethod };
 
 if (data.requestMethod !== 'GET') {
-    if (data.requestType === 'json') {
-        postBody = JSON.stringify(requestBody);
+  if (data.requestType === 'json') {
+    postBody = JSON.stringify(requestBody);
+  }
+
+  if (data.requestType === 'form') {
+    let firstKey = true;
+    postBody = '';
+
+    for (let key in requestBody) {
+      if (firstKey) {
+        firstKey = false;
+      } else {
+        postBody += '&';
+      }
+
+      postBody += enc(key) + '=' + enc(requestBody[key]);
     }
-
-    if (data.requestType === 'form') {
-        let firstKey = true;
-        postBody = '';
-
-        for (let key in requestBody) {
-            if (firstKey) {
-                firstKey = false;
-            } else {
-                postBody += '&';
-            }
-
-            postBody += enc(key) + '=' + enc(requestBody[key]);
-        }
-    }
+  }
 }
 
 if (data.requestTimeout) {
-    requestOptions.timeout = makeInteger(data.requestTimeout);
+  requestOptions.timeout = makeInteger(data.requestTimeout);
 }
 
 return sendRequest(data.url, requestOptions, postBody);
 
 function sendRequest(url, requestOptions, postBody) {
-    let cacheKey = sha256Sync(url + JSON.stringify(requestOptions) + postBody + data.jsonParseKeyName);
+  let cacheKey = sha256Sync(url + JSON.stringify(requestOptions) + postBody + data.jsonParseKeyName);
 
-    if (data.storeResponse) {
-        const cachedBody = templateDataStorage.getItemCopy(cacheKey);
+  if (data.storeResponse) {
+    const cachedBody = templateDataStorage.getItemCopy(cacheKey);
 
-        if (cachedBody) return cachedBody;
+    if (cachedBody) return cachedBody;
+  }
+
+  return sendHttpRequest(url, requestOptions, postBody).then((successResult) => {
+    if (successResult.statusCode === 301 || successResult.statusCode === 302) {
+      return sendRequest(successResult.headers['location'], requestOptions, postBody);
     }
 
-    return sendHttpRequest(url, requestOptions, postBody).then((successResult) => {
-        if (successResult.statusCode === 301 || successResult.statusCode === 302) {
-            return sendRequest(successResult.headers['location'], requestOptions, postBody);
-        }
+    if (!data.jsonParse) {
+      if (data.storeResponse) templateDataStorage.setItemCopy(cacheKey, successResult.body);
 
-        if (!data.jsonParse) {
-            if (data.storeResponse) templateDataStorage.setItemCopy(cacheKey, successResult.body);
+      return successResult.body;
+    }
 
-            return successResult.body;
-        }
+    const parsedBody = JSON.parse(successResult.body);
+    const result = data.jsonParseKey ? parsedBody[data.jsonParseKeyName] : parsedBody;
 
-        const parsedBody = JSON.parse(successResult.body);
-        const result = data.jsonParseKey ? parsedBody[data.jsonParseKeyName] : parsedBody;
+    if (data.storeResponse) templateDataStorage.setItemCopy(cacheKey, result);
 
-        if (data.storeResponse) templateDataStorage.setItemCopy(cacheKey, result);
-
-        return result;
-    });
+    return result;
+  });
 }
 
 function createSimpleObject() {
-    return makeTableMap(data.data, 'key', 'value');
+  return makeTableMap(data.data, 'key', 'value');
 }
 
 function mergeObjects() {
-    let obj = {},
-        i = 0,
-        il = arguments.length,
-        key;
-    for (; i < il; i++) {
-        for (key in arguments[i]) {
-            if (arguments[i][key]) {
-                obj[key] = arguments[i][key];
-            }
-        }
+  let obj = {},
+    i = 0,
+    il = arguments.length,
+    key;
+  for (; i < il; i++) {
+    for (key in arguments[i]) {
+      if (arguments[i][key]) {
+        obj[key] = arguments[i][key];
+      }
     }
-    return obj;
+  }
+  return obj;
 }
 
 function createNestedObject() {
-    let object = {};
+  let object = {};
 
-    for (let key in data.data) {
-        let dotPath = data.data[key].key;
-        let rootProperty = dotPath.split('.')[0];
-        let strObj = strToObj(dotPath, data.data[key].value)[rootProperty];
+  for (let key in data.data) {
+    let dotPath = data.data[key].key;
+    let rootProperty = dotPath.split('.')[0];
+    let strObj = strToObj(dotPath, data.data[key].value)[rootProperty];
 
-        if (object[rootProperty]) {
-            object[rootProperty] = mergeObjects(object[rootProperty], strObj);
-        } else {
-            object[rootProperty] = strObj;
-        }
+    if (object[rootProperty]) {
+      object[rootProperty] = mergeObjects(object[rootProperty], strObj);
+    } else {
+      object[rootProperty] = strObj;
     }
+  }
 
-    return object;
+  return object;
 }
 
 function strToObj(dotPath, val) {
-    let i, obj = {}, dotArr = dotPath.split('.');
-    let x = obj;
+  let i,
+    obj = {},
+    dotArr = dotPath.split('.');
+  let x = obj;
 
-    for (i = 0; i < dotArr.length - 1; i++) {
-        x = x[dotArr[i]] = {};
-    }
+  for (i = 0; i < dotArr.length - 1; i++) {
+    x = x[dotArr[i]] = {};
+  }
 
-    x[dotArr[i]] = val;
+  x[dotArr[i]] = val;
 
-    return obj;
+  return obj;
 }
 
 function enc(data) {
-    data = data || '';
-    return encodeUriComponent(data);
+  data = data || '';
+  return encodeUriComponent(data);
 }
