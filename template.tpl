@@ -280,9 +280,11 @@ const JSON = require('JSON');
 const encodeUriComponent = require('encodeUriComponent');
 const templateDataStorage = require('templateDataStorage');
 const sha256Sync = require('sha256Sync');
+const Promise = require('Promise');
 
 let requestHeaders = {};
 let requestBody = {};
+const version = '1.0.5';
 
 if (data.requestMethod !== 'GET') {
   requestHeaders = data.requestType === 'json' ? { 'Content-Type': 'application/json' } : { 'Content-Type': 'application/x-www-form-urlencoded' };
@@ -334,15 +336,14 @@ if (data.requestTimeout) {
   requestOptions.timeout = makeInteger(data.requestTimeout);
 }
 
-return sendRequest(data.url, requestOptions, postBody);
+return sendRequest(data.url, requestOptions, postBody).then(mapResponse);
 
 function sendRequest(url, requestOptions, postBody) {
-  let cacheKey = sha256Sync(url + JSON.stringify(requestOptions) + postBody + data.jsonParseKeyName);
+  let cacheKey = sha256Sync(version + url + JSON.stringify(requestOptions) + postBody + data.jsonParseKeyName);
 
   if (data.storeResponse) {
     const cachedBody = templateDataStorage.getItemCopy(cacheKey);
-
-    if (cachedBody) return cachedBody;
+    if (cachedBody) return Promise.create((resolve) => resolve(cachedBody));
   }
 
   return sendHttpRequest(url, requestOptions, postBody).then((successResult) => {
@@ -350,19 +351,16 @@ function sendRequest(url, requestOptions, postBody) {
       return sendRequest(successResult.headers['location'], requestOptions, postBody);
     }
 
-    if (!data.jsonParse) {
-      if (data.storeResponse) templateDataStorage.setItemCopy(cacheKey, successResult.body);
+    if (data.storeResponse) templateDataStorage.setItemCopy(cacheKey, successResult.body);
 
-      return successResult.body;
-    }
-
-    const parsedBody = JSON.parse(successResult.body);
-    const result = data.jsonParseKey ? parsedBody[data.jsonParseKeyName] : parsedBody;
-
-    if (data.storeResponse) templateDataStorage.setItemCopy(cacheKey, result);
-
-    return result;
+    return successResult.body;
   });
+}
+
+function mapResponse(bodyString) {
+  if (!data.jsonParse) return bodyString;
+  const parsedBody = JSON.parse(bodyString);
+  return data.jsonParseKey ? parsedBody[data.jsonParseKeyName] : parsedBody;
 }
 
 function createSimpleObject() {
