@@ -83,7 +83,9 @@ function sendRequest(url, requestOptions, postBody) {
         Type: 'Request',
         TraceId: traceId,
         EventName: 'purchase',
-        RequestMethod: 'POST',
+        //TODO: change event name
+        RequestMethod: data.requestMethod,
+        RequestUrl: url,
         RequestBody: postBody,
       })
     );
