@@ -79,10 +79,12 @@ function sendRequest(url, requestOptions, postBody) {
   if (isLoggingEnabled) {
     logToConsole(
       JSON.stringify({
-        Name: 'HTTPLookup',
-        Type: 'Response',
+        Name: 'HTTP Lookup',
+        Type: 'Request',
         TraceId: traceId,
-        EventName: 'CreateOrUpdateContact',
+        EventName: 'purchase',
+        RequestMethod: 'POST',
+        RequestBody: postBody,
       })
     );
   }
@@ -90,7 +92,7 @@ function sendRequest(url, requestOptions, postBody) {
     if (isLoggingEnabled) {
       logToConsole(
         JSON.stringify({
-          Name: 'HTTPLookup',
+          Name: 'HTTP Lookup',
           Type: 'Response',
           TraceId: traceId,
           EventName: 'CreateOrUpdateContact',
