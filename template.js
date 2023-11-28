@@ -82,8 +82,7 @@ function sendRequest(url, requestOptions, postBody) {
         Name: 'HTTPLookup',
         Type: 'Request',
         TraceId: traceId,
-        EventName: 'purchase',
-        //TODO: change event name
+        EventName: 'HttpLookupRequest',
         RequestMethod: data.requestMethod,
         RequestUrl: url,
         RequestBody: postBody,
@@ -97,7 +96,7 @@ function sendRequest(url, requestOptions, postBody) {
           Name: 'HTTPLookup',
           Type: 'Response',
           TraceId: traceId,
-          EventName: 'CreateOrUpdateContact',
+          EventName: 'HttpLookupRequest',
           ResponseStatusCode: successResult.statusCode,
           ResponseHeaders: successResult.headers,
           ResponseBody: successResult.body,
