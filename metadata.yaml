@@ -10,3 +10,6 @@ versions:
     changeNotes: Add follow redirect.
   - sha: 944786d0c39e6b14ab514577e5578f7317e9e3a2
     changeNotes: Initial release.
+  - sha: 973b1dbae5cf2240afb720e1400f0e6548e91f65
+    changeNotes: Added log settings.
+
