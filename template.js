@@ -6,6 +6,12 @@ const encodeUriComponent = require('encodeUriComponent');
 const templateDataStorage = require('templateDataStorage');
 const sha256Sync = require('sha256Sync');
 const Promise = require('Promise');
+const logToConsole = require('logToConsole');
+const getRequestHeader = require('getRequestHeader');
+const getContainerVersion = require('getContainerVersion');
+
+const isLoggingEnabled = determinateIsLoggingEnabled();
+const traceId = isLoggingEnabled ? getRequestHeader('trace-id') : undefined;
 
 let requestHeaders = {};
 let requestBody = {};
@@ -70,14 +76,38 @@ function sendRequest(url, requestOptions, postBody) {
     const cachedBody = templateDataStorage.getItemCopy(cacheKey);
     if (cachedBody) return Promise.create((resolve) => resolve(cachedBody));
   }
-
+  if (isLoggingEnabled) {
+    logToConsole(
+      JSON.stringify({
+        Name: 'HTTPLookup',
+        Type: 'Request',
+        TraceId: traceId,
+        EventName: 'HttpLookupRequest',
+        RequestMethod: data.requestMethod,
+        RequestUrl: url,
+        RequestBody: postBody,
+      })
+    );
+  }
   return sendHttpRequest(url, requestOptions, postBody).then((successResult) => {
+    if (isLoggingEnabled) {
+      logToConsole(
+        JSON.stringify({
+          Name: 'HTTPLookup',
+          Type: 'Response',
+          TraceId: traceId,
+          EventName: 'HttpLookupRequest',
+          ResponseStatusCode: successResult.statusCode,
+          ResponseHeaders: successResult.headers,
+          ResponseBody: successResult.body,
+        })
+      );
+    }
     if (successResult.statusCode === 301 || successResult.statusCode === 302) {
       return sendRequest(successResult.headers['location'], requestOptions, postBody);
     }
 
     if (data.storeResponse) templateDataStorage.setItemCopy(cacheKey, successResult.body);
-
     return successResult.body;
   });
 }
@@ -143,4 +173,22 @@ function strToObj(dotPath, val) {
 function enc(data) {
   data = data || '';
   return encodeUriComponent(data);
+}
+function determinateIsLoggingEnabled() {
+  const containerVersion = getContainerVersion();
+  const isDebug = !!(containerVersion && (containerVersion.debugMode || containerVersion.previewMode));
+
+  if (!data.logType) {
+    return isDebug;
+  }
+
+  if (data.logType === 'no') {
+    return false;
+  }
+
+  if (data.logType === 'debug') {
+    return isDebug;
+  }
+
+  return data.logType === 'always';
 }
