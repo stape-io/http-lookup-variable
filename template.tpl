@@ -151,6 +151,9 @@ ___TEMPLATE_PARAMETERS___
     "valueValidators": [
       {
         "type": "POSITIVE_NUMBER"
+      },
+      {
+        "type": "NON_EMPTY"
       }
     ],
     "defaultValue": 12
