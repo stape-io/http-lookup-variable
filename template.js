@@ -79,7 +79,7 @@ function sendRequest(url, requestOptions, postBody) {
     let cachedBody = templateDataStorage.getItemCopy(cacheKey);
     let cachedBodyTimestamp = templateDataStorage.getItemCopy(cacheTimeKey);
     if (data.expirationTime) {
-      let expiratoinTimeSeconds = data.expirationTime * 360000; // convert to miliseconds
+      let expiratoinTimeSeconds = makeInteger(data.expirationTime) * 360000; // convert to miliseconds
 
       if(cachedBodyTimestamp && (timeNow - makeInteger(cachedBodyTimestamp)) >= expiratoinTimeSeconds) {
         cachedBody = '';
