@@ -136,6 +136,29 @@ ___TEMPLATE_PARAMETERS___
     "help": "Store the response in Template Storage. If all parameters of the request are the same response will be taken from the cache if it exists."
   },
   {
+    "type": "TEXT",
+    "name": "expirationTime",
+    "displayName": "Cache Expiration Time (Hours)",
+    "simpleValueType": true,
+    "help": "Will update cache if data is expired.",
+    "enablingConditions": [
+      {
+        "paramName": "storeResponse",
+        "paramValue": true,
+        "type": "EQUALS"
+      }
+    ],
+    "valueValidators": [
+      {
+        "type": "POSITIVE_NUMBER"
+      },
+      {
+        "type": "NON_EMPTY"
+      }
+    ],
+    "defaultValue": 12
+  },
+  {
     "type": "CHECKBOX",
     "name": "jsonParseKey",
     "checkboxText": "Extract key from JSON object",
@@ -312,6 +335,7 @@ const Promise = require('Promise');
 const logToConsole = require('logToConsole');
 const getRequestHeader = require('getRequestHeader');
 const getContainerVersion = require('getContainerVersion');
+const getTimestampMillis = require('getTimestampMillis');
 
 const isLoggingEnabled = determinateIsLoggingEnabled();
 const traceId = isLoggingEnabled ? getRequestHeader('trace-id') : undefined;
@@ -374,9 +398,22 @@ return sendRequest(data.url, requestOptions, postBody).then(mapResponse);
 
 function sendRequest(url, requestOptions, postBody) {
   let cacheKey = sha256Sync(version + url + JSON.stringify(requestOptions) + postBody + data.jsonParseKeyName);
+  let cacheTimeKey = cacheKey + '_timestamp';
+  let timeNow = getTimestampMillis();
 
   if (data.storeResponse) {
-    const cachedBody = templateDataStorage.getItemCopy(cacheKey);
+    let cachedBody = templateDataStorage.getItemCopy(cacheKey);
+    let cachedBodyTimestamp = templateDataStorage.getItemCopy(cacheTimeKey);
+    if (data.expirationTime) {
+      let expiratoinTimeSeconds = makeInteger(data.expirationTime) * 360000; // convert to miliseconds
+
+      if(cachedBodyTimestamp && (timeNow - makeInteger(cachedBodyTimestamp)) >= expiratoinTimeSeconds) {
+        cachedBody = '';
+        templateDataStorage.removeItem(cacheKey);
+        templateDataStorage.removeItem(cacheTimeKey);
+      }
+    }
+
     if (cachedBody) return Promise.create((resolve) => resolve(cachedBody));
   }
   if (isLoggingEnabled) {
@@ -407,10 +444,14 @@ function sendRequest(url, requestOptions, postBody) {
       );
     }
     if (successResult.statusCode === 301 || successResult.statusCode === 302) {
-      return sendRequest(successResult.headers['location'], requestOptions, postBody);
+      return sendRequest(successResult.headers.location, requestOptions, postBody);
     }
 
-    if (data.storeResponse) templateDataStorage.setItemCopy(cacheKey, successResult.body);
+    if (data.storeResponse) {
+
+      templateDataStorage.setItemCopy(cacheKey, successResult.body);
+      templateDataStorage.setItemCopy(cacheTimeKey, timeNow);
+    }
     return successResult.body;
   });
 }
@@ -477,6 +518,7 @@ function enc(data) {
   data = data || '';
   return encodeUriComponent(data);
 }
+
 function determinateIsLoggingEnabled() {
   const containerVersion = getContainerVersion();
   const isDebug = !!(containerVersion && (containerVersion.debugMode || containerVersion.previewMode));
