@@ -134,7 +134,7 @@ function mapResponse(bodyString) {
   if (!data.jsonParse) return bodyString;
   const parsedBody = JSON.parse(bodyString);
   if (data.jsonParseKey) {
-    return data.jsonParseKey.split('.').reduce(function (obj, key) {
+    return data.jsonParseKeyName.split('.').reduce(function (obj, key) {
       if (obj === undefined) return undefined;
       if (obj.hasOwnProperty(key)) return obj[key];
       return undefined;

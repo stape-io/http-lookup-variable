@@ -461,7 +461,7 @@ function mapResponse(bodyString) {
   if (!data.jsonParse) return bodyString;
   const parsedBody = JSON.parse(bodyString);
   if (data.jsonParseKey) {
-    return data.jsonParseKey.split('.').reduce(function (obj, key) {
+    return data.jsonParseKeyName.split('.').reduce(function (obj, key) {
       if (obj === undefined) return undefined;
       if (obj.hasOwnProperty(key)) return obj[key];
       return undefined;
@@ -711,7 +711,8 @@ scenarios:
     assertThat(variableResult).isEqualTo(expectedResponseBody);
 - name: JSON Response - Top-level key is correctly extracted from response
   code: |-
-    mockData.jsonParseKey = 'test';
+    mockData.jsonParseKey = true;
+    mockData.jsonParseKeyName = 'test';
 
     const expectedResponseBody = { foo: { bar: [{ abc: '456' }, { cde: 123 }] }, test: 'example' };
     const expectedStringifiedResponseBody = JSON.stringify(expectedResponseBody);
@@ -736,7 +737,8 @@ scenarios:
     assertThat(variableResult).isEqualTo('example');
 - name: JSON Response - Dot notation key is correctly extracted from response
   code: |-
-    mockData.jsonParseKey = 'foo.bar.0.abc';
+    mockData.jsonParseKey = true;
+    mockData.jsonParseKeyName = 'foo.bar.0.abc';
 
     const expectedResponseBody = { foo: { bar: [{ abc: '456' }, { cde: 123 }] }, test: 'example' };
     const expectedStringifiedResponseBody = JSON.stringify(expectedResponseBody);
