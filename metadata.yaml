@@ -1,5 +1,7 @@
-homepage: "https://stape.io/"
+homepage: 'https://stape.io/'
 versions:
+  - sha: 0e816a5d484aab5aab6aa59b85f53baec51b4064
+    changeNotes: Added dot notation support for accessing JSON responses nested values.
   - sha: 76baffd7d844d1ee857e378ab6daca0cdf449470
     changeNotes: Added chache expiration time, logs.
   - sha: 1d6ae7c7eefee20ed48210657c0a5fce1a1107c3
@@ -14,4 +16,3 @@ versions:
     changeNotes: Initial release.
   - sha: 973b1dbae5cf2240afb720e1400f0e6548e91f65
     changeNotes: Added log settings.
-

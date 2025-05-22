@@ -187,7 +187,8 @@ ___TEMPLATE_PARAMETERS___
           {
             "type": "NON_EMPTY"
           }
-        ]
+        ],
+        "help": "Specify the value of a specific key whose value you want to return. Use dot notation if needed (e.g. \u003ci\u003efoo.id\u003c/i\u003e, \u003ci\u003ebar.0.price\u003c/i\u003e)."
       }
     ]
   },
@@ -342,7 +343,7 @@ const traceId = isLoggingEnabled ? getRequestHeader('trace-id') : undefined;
 
 let requestHeaders = {};
 let requestBody = {};
-const version = '1.0.5';
+const version = '1.0.6';
 
 if (data.requestMethod !== 'GET') {
   requestHeaders = data.requestType === 'json' ? { 'Content-Type': 'application/json' } : { 'Content-Type': 'application/x-www-form-urlencoded' };
@@ -407,7 +408,7 @@ function sendRequest(url, requestOptions, postBody) {
     if (data.expirationTime) {
       let expiratoinTimeSeconds = makeInteger(data.expirationTime) * 360000; // convert to miliseconds
 
-      if(cachedBodyTimestamp && (timeNow - makeInteger(cachedBodyTimestamp)) >= expiratoinTimeSeconds) {
+      if (cachedBodyTimestamp && timeNow - makeInteger(cachedBodyTimestamp) >= expiratoinTimeSeconds) {
         cachedBody = '';
         templateDataStorage.removeItem(cacheKey);
         templateDataStorage.removeItem(cacheTimeKey);
@@ -425,10 +426,11 @@ function sendRequest(url, requestOptions, postBody) {
         EventName: 'HttpLookupRequest',
         RequestMethod: data.requestMethod,
         RequestUrl: url,
-        RequestBody: postBody,
+        RequestBody: postBody
       })
     );
   }
+
   return sendHttpRequest(url, requestOptions, postBody).then((successResult) => {
     if (isLoggingEnabled) {
       logToConsole(
@@ -439,7 +441,7 @@ function sendRequest(url, requestOptions, postBody) {
           EventName: 'HttpLookupRequest',
           ResponseStatusCode: successResult.statusCode,
           ResponseHeaders: successResult.headers,
-          ResponseBody: successResult.body,
+          ResponseBody: successResult.body
         })
       );
     }
@@ -448,7 +450,6 @@ function sendRequest(url, requestOptions, postBody) {
     }
 
     if (data.storeResponse) {
-
       templateDataStorage.setItemCopy(cacheKey, successResult.body);
       templateDataStorage.setItemCopy(cacheTimeKey, timeNow);
     }
@@ -459,7 +460,14 @@ function sendRequest(url, requestOptions, postBody) {
 function mapResponse(bodyString) {
   if (!data.jsonParse) return bodyString;
   const parsedBody = JSON.parse(bodyString);
-  return data.jsonParseKey ? parsedBody[data.jsonParseKeyName] : parsedBody;
+  if (data.jsonParseKey) {
+    return data.jsonParseKeyName.split('.').reduce(function (obj, key) {
+      if (obj === undefined) return undefined;
+      if (obj.hasOwnProperty(key)) return obj[key];
+      return undefined;
+    }, parsedBody);
+  }
+  return parsedBody;
 }
 
 function createSimpleObject() {
@@ -674,7 +682,93 @@ ___SERVER_PERMISSIONS___
 
 ___TESTS___
 
-scenarios: []
+scenarios:
+- name: JSON Response - Entire reponse is correctly extracted without specifying a
+    key
+  code: |-
+    mockData.jsonParseKey = undefined;
+
+    const expectedResponseBody = { foo: { bar: [{ abc: '456' }, { cde: 123 }] }, test: 'example' };
+    const expectedStringifiedResponseBody = JSON.stringify(expectedResponseBody);
+
+    mock('sendHttpRequest', (requestUrl, requestOptions, requestBody) => {
+      return {
+        then: (requestCallback) => {
+          const response = {
+            statusCode: 200,
+            headers: {},
+            body: expectedStringifiedResponseBody
+          };
+          return {
+            then: (mapCallback) => mapCallback(requestCallback(response))
+          };
+        }
+      };
+    });
+
+    let variableResult = runCode(mockData);
+
+    assertThat(variableResult).isEqualTo(expectedResponseBody);
+- name: JSON Response - Top-level key is correctly extracted from response
+  code: |-
+    mockData.jsonParseKey = true;
+    mockData.jsonParseKeyName = 'test';
+
+    const expectedResponseBody = { foo: { bar: [{ abc: '456' }, { cde: 123 }] }, test: 'example' };
+    const expectedStringifiedResponseBody = JSON.stringify(expectedResponseBody);
+
+    mock('sendHttpRequest', (requestUrl, requestOptions, requestBody) => {
+      return {
+        then: (requestCallback) => {
+          const response = {
+            statusCode: 200,
+            headers: {},
+            body: expectedStringifiedResponseBody
+          };
+          return {
+            then: (mapCallback) => mapCallback(requestCallback(response))
+          };
+        }
+      };
+    });
+
+    let variableResult = runCode(mockData);
+
+    assertThat(variableResult).isEqualTo('example');
+- name: JSON Response - Dot notation key is correctly extracted from response
+  code: |-
+    mockData.jsonParseKey = true;
+    mockData.jsonParseKeyName = 'foo.bar.0.abc';
+
+    const expectedResponseBody = { foo: { bar: [{ abc: '456' }, { cde: 123 }] }, test: 'example' };
+    const expectedStringifiedResponseBody = JSON.stringify(expectedResponseBody);
+
+    mock('sendHttpRequest', (requestUrl, requestOptions, requestBody) => {
+      return {
+        then: (requestCallback) => {
+          const response = {
+            statusCode: 200,
+            headers: {},
+            body: expectedStringifiedResponseBody
+          };
+          return {
+            then: (mapCallback) => mapCallback(requestCallback(response))
+          };
+        }
+      };
+    });
+
+    let variableResult = runCode(mockData);
+
+    assertThat(variableResult).isEqualTo('456');
+setup: |-
+  const JSON = require('JSON');
+
+  const mockData = {
+    requestMethod: 'GET',
+    url: 'https://example.com',
+    jsonParse: true
+  };
 
 
 ___NOTES___
