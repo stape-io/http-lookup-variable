@@ -16,7 +16,7 @@ const traceId = isLoggingEnabled ? getRequestHeader('trace-id') : undefined;
 
 let requestHeaders = {};
 let requestBody = {};
-const version = '1.0.5';
+const version = '1.0.6';
 
 if (data.requestMethod !== 'GET') {
   requestHeaders = data.requestType === 'json' ? { 'Content-Type': 'application/json' } : { 'Content-Type': 'application/x-www-form-urlencoded' };
@@ -74,14 +74,14 @@ function sendRequest(url, requestOptions, postBody) {
   let cacheKey = sha256Sync(version + url + JSON.stringify(requestOptions) + postBody + data.jsonParseKeyName);
   let cacheTimeKey = cacheKey + '_timestamp';
   let timeNow = getTimestampMillis();
-  
+
   if (data.storeResponse) {
     let cachedBody = templateDataStorage.getItemCopy(cacheKey);
     let cachedBodyTimestamp = templateDataStorage.getItemCopy(cacheTimeKey);
     if (data.expirationTime) {
       let expiratoinTimeSeconds = makeInteger(data.expirationTime) * 360000; // convert to miliseconds
 
-      if(cachedBodyTimestamp && (timeNow - makeInteger(cachedBodyTimestamp)) >= expiratoinTimeSeconds) {
+      if (cachedBodyTimestamp && timeNow - makeInteger(cachedBodyTimestamp) >= expiratoinTimeSeconds) {
         cachedBody = '';
         templateDataStorage.removeItem(cacheKey);
         templateDataStorage.removeItem(cacheTimeKey);
@@ -99,10 +99,11 @@ function sendRequest(url, requestOptions, postBody) {
         EventName: 'HttpLookupRequest',
         RequestMethod: data.requestMethod,
         RequestUrl: url,
-        RequestBody: postBody,
+        RequestBody: postBody
       })
     );
   }
+
   return sendHttpRequest(url, requestOptions, postBody).then((successResult) => {
     if (isLoggingEnabled) {
       logToConsole(
@@ -113,7 +114,7 @@ function sendRequest(url, requestOptions, postBody) {
           EventName: 'HttpLookupRequest',
           ResponseStatusCode: successResult.statusCode,
           ResponseHeaders: successResult.headers,
-          ResponseBody: successResult.body,
+          ResponseBody: successResult.body
         })
       );
     }
@@ -122,7 +123,6 @@ function sendRequest(url, requestOptions, postBody) {
     }
 
     if (data.storeResponse) {
-
       templateDataStorage.setItemCopy(cacheKey, successResult.body);
       templateDataStorage.setItemCopy(cacheTimeKey, timeNow);
     }
@@ -133,7 +133,14 @@ function sendRequest(url, requestOptions, postBody) {
 function mapResponse(bodyString) {
   if (!data.jsonParse) return bodyString;
   const parsedBody = JSON.parse(bodyString);
-  return data.jsonParseKey ? parsedBody[data.jsonParseKeyName] : parsedBody;
+  if (data.jsonParseKey) {
+    return data.jsonParseKey.split('.').reduce(function (obj, key) {
+      if (obj === undefined) return undefined;
+      if (obj.hasOwnProperty(key)) return obj[key];
+      return undefined;
+    }, parsedBody);
+  }
+  return parsedBody;
 }
 
 function createSimpleObject() {
