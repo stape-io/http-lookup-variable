@@ -683,7 +683,8 @@ ___SERVER_PERMISSIONS___
 ___TESTS___
 
 scenarios:
-- name: JSON Response - Entire reponse is correctly pulled without extracting a key
+- name: JSON Response - Entire reponse is correctly extracted without specifying a
+    key
   code: |-
     mockData.jsonParseKey = undefined;
 
@@ -708,7 +709,7 @@ scenarios:
     let variableResult = runCode(mockData);
 
     assertThat(variableResult).isEqualTo(expectedResponseBody);
-- name: JSON Response - Top-level key is correctly extract from response
+- name: JSON Response - Top-level key is correctly extracted from response
   code: |-
     mockData.jsonParseKey = 'test';
 
@@ -733,7 +734,7 @@ scenarios:
     let variableResult = runCode(mockData);
 
     assertThat(variableResult).isEqualTo('example');
-- name: JSON Response - Dot notation key is correctly extract from response
+- name: JSON Response - Dot notation key is correctly extracted from response
   code: |-
     mockData.jsonParseKey = 'foo.bar.0.abc';
 
