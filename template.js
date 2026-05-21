@@ -1,28 +1,33 @@
-﻿const sendHttpRequest = require('sendHttpRequest');
-const makeInteger = require('makeInteger');
-const makeTableMap = require('makeTableMap');
-const JSON = require('JSON');
-const encodeUriComponent = require('encodeUriComponent');
-const templateDataStorage = require('templateDataStorage');
-const sha256Sync = require('sha256Sync');
-const Promise = require('Promise');
-const logToConsole = require('logToConsole');
-const getRequestHeader = require('getRequestHeader');
-const getContainerVersion = require('getContainerVersion');
+﻿const encodeUriComponent = require('encodeUriComponent');
 const getTimestampMillis = require('getTimestampMillis');
+const getType = require('getType');
+const JSON = require('JSON');
+const Promise = require('Promise');
+const sendHttpRequest = require('sendHttpRequest');
+const sha256Sync = require('sha256Sync');
+const templateDataStorage = require('templateDataStorage');
+const makeInteger = require('makeInteger');
+const makeString = require('makeString');
+const makeTableMap = require('makeTableMap');
 
-const isLoggingEnabled = determinateIsLoggingEnabled();
-const traceId = isLoggingEnabled ? getRequestHeader('trace-id') : undefined;
+/*==============================================================================
+===============================================================================*/
 
 let requestHeaders = {};
 let requestBody = {};
 const version = '1.0.6';
 
 if (data.requestMethod !== 'GET') {
-  requestHeaders = data.requestType === 'json' ? { 'Content-Type': 'application/json' } : { 'Content-Type': 'application/x-www-form-urlencoded' };
+  requestHeaders =
+    data.requestType === 'json'
+      ? { 'Content-Type': 'application/json' }
+      : { 'Content-Type': 'application/x-www-form-urlencoded' };
 
   if (data.data) {
-    let postBodyCustomData = data.simpleObject || data.requestType !== 'json' ? createSimpleObject() : createNestedObject();
+    let postBodyCustomData =
+      data.simpleObject || data.requestType !== 'json'
+        ? createSimpleObject()
+        : createNestedObject();
 
     for (let key in postBodyCustomData) {
       requestBody[key] = postBodyCustomData[key];
@@ -70,8 +75,14 @@ if (data.requestTimeout) {
 
 return sendRequest(data.url, requestOptions, postBody).then(mapResponse);
 
+/*==============================================================================
+  Vendor related functions
+==============================================================================*/
+
 function sendRequest(url, requestOptions, postBody) {
-  let cacheKey = sha256Sync(version + url + JSON.stringify(requestOptions) + postBody + data.jsonParseKeyName);
+  let cacheKey = sha256Sync(
+    version + url + JSON.stringify(requestOptions) + postBody + data.jsonParseKeyName
+  );
   let cacheTimeKey = cacheKey + '_timestamp';
   let timeNow = getTimestampMillis();
 
@@ -81,7 +92,10 @@ function sendRequest(url, requestOptions, postBody) {
     if (data.expirationTime) {
       let expiratoinTimeSeconds = makeInteger(data.expirationTime) * 360000; // convert to miliseconds
 
-      if (cachedBodyTimestamp && timeNow - makeInteger(cachedBodyTimestamp) >= expiratoinTimeSeconds) {
+      if (
+        cachedBodyTimestamp &&
+        timeNow - makeInteger(cachedBodyTimestamp) >= expiratoinTimeSeconds
+      ) {
         cachedBody = '';
         templateDataStorage.removeItem(cacheKey);
         templateDataStorage.removeItem(cacheTimeKey);
@@ -90,34 +104,8 @@ function sendRequest(url, requestOptions, postBody) {
 
     if (cachedBody) return Promise.create((resolve) => resolve(cachedBody));
   }
-  if (isLoggingEnabled) {
-    logToConsole(
-      JSON.stringify({
-        Name: 'HTTPLookup',
-        Type: 'Request',
-        TraceId: traceId,
-        EventName: 'HttpLookupRequest',
-        RequestMethod: data.requestMethod,
-        RequestUrl: url,
-        RequestBody: postBody
-      })
-    );
-  }
 
   return sendHttpRequest(url, requestOptions, postBody).then((successResult) => {
-    if (isLoggingEnabled) {
-      logToConsole(
-        JSON.stringify({
-          Name: 'HTTPLookup',
-          Type: 'Response',
-          TraceId: traceId,
-          EventName: 'HttpLookupRequest',
-          ResponseStatusCode: successResult.statusCode,
-          ResponseHeaders: successResult.headers,
-          ResponseBody: successResult.body
-        })
-      );
-    }
     if (successResult.statusCode === 301 || successResult.statusCode === 302) {
       return sendRequest(successResult.headers.location, requestOptions, postBody);
     }
@@ -129,6 +117,10 @@ function sendRequest(url, requestOptions, postBody) {
     return successResult.body;
   });
 }
+
+/*==============================================================================
+  Helpers
+==============================================================================*/
 
 function mapResponse(bodyString) {
   if (!data.jsonParse) return bodyString;
@@ -196,25 +188,6 @@ function strToObj(dotPath, val) {
 }
 
 function enc(data) {
-  data = data || '';
-  return encodeUriComponent(data);
-}
-
-function determinateIsLoggingEnabled() {
-  const containerVersion = getContainerVersion();
-  const isDebug = !!(containerVersion && (containerVersion.debugMode || containerVersion.previewMode));
-
-  if (!data.logType) {
-    return isDebug;
-  }
-
-  if (data.logType === 'no') {
-    return false;
-  }
-
-  if (data.logType === 'debug') {
-    return isDebug;
-  }
-
-  return data.logType === 'always';
+  if (['null', 'undefined'].indexOf(getType(data)) !== -1) data = '';
+  return encodeUriComponent(makeString(data));
 }
