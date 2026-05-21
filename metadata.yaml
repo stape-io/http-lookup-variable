@@ -1,5 +1,8 @@
 homepage: 'https://stape.io/'
+documentation: 'https://github.com/stape-io/http-lookup-variable'
 versions:
+  - sha: 8891d4d716ed3709d3675000b04dab7246918a72
+    changeNotes: Console logging removal.
   - sha: 0e816a5d484aab5aab6aa59b85f53baec51b4064
     changeNotes: Added dot notation support for accessing JSON responses nested values.
   - sha: 76baffd7d844d1ee857e378ab6daca0cdf449470
