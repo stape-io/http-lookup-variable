@@ -15,7 +15,7 @@ const makeTableMap = require('makeTableMap');
 
 let requestHeaders = {};
 let requestBody = {};
-const version = '1.0.6';
+const version = '1.0.7';
 
 if (data.requestMethod !== 'GET') {
   requestHeaders =
@@ -46,7 +46,7 @@ if (data.insideArray && data.requestType === 'json') {
 }
 
 let postBody = null;
-let requestOptions = { headers: requestHeaders, method: data.requestMethod };
+const requestOptions = { headers: requestHeaders, method: data.requestMethod };
 
 if (data.requestMethod !== 'GET') {
   if (data.requestType === 'json') {
@@ -80,22 +80,19 @@ return sendRequest(data.url, requestOptions, postBody).then(mapResponse);
 ==============================================================================*/
 
 function sendRequest(url, requestOptions, postBody) {
-  let cacheKey = sha256Sync(
+  const cacheKey = sha256Sync(
     version + url + JSON.stringify(requestOptions) + postBody + data.jsonParseKeyName
   );
-  let cacheTimeKey = cacheKey + '_timestamp';
-  let timeNow = getTimestampMillis();
+  const cacheTimeKey = cacheKey + '_timestamp';
+  const timeNow = getTimestampMillis();
 
   if (data.storeResponse) {
     let cachedBody = templateDataStorage.getItemCopy(cacheKey);
-    let cachedBodyTimestamp = templateDataStorage.getItemCopy(cacheTimeKey);
+    const cachedBodyTimestamp = templateDataStorage.getItemCopy(cacheTimeKey);
     if (data.expirationTime) {
-      let expiratoinTimeSeconds = makeInteger(data.expirationTime) * 360000; // convert to miliseconds
+      const expirationTime = makeInteger(data.expirationTime) * 3600000;
 
-      if (
-        cachedBodyTimestamp &&
-        timeNow - makeInteger(cachedBodyTimestamp) >= expiratoinTimeSeconds
-      ) {
+      if (cachedBodyTimestamp && timeNow - makeInteger(cachedBodyTimestamp) >= expirationTime) {
         cachedBody = '';
         templateDataStorage.removeItem(cacheKey);
         templateDataStorage.removeItem(cacheTimeKey);
@@ -105,17 +102,21 @@ function sendRequest(url, requestOptions, postBody) {
     if (cachedBody) return Promise.create((resolve) => resolve(cachedBody));
   }
 
-  return sendHttpRequest(url, requestOptions, postBody).then((successResult) => {
-    if (successResult.statusCode === 301 || successResult.statusCode === 302) {
-      return sendRequest(successResult.headers.location, requestOptions, postBody);
-    }
+  return sendHttpRequest(url, requestOptions, postBody)
+    .then((successResult) => {
+      const statusCode = successResult.statusCode;
 
-    if (data.storeResponse) {
-      templateDataStorage.setItemCopy(cacheKey, successResult.body);
-      templateDataStorage.setItemCopy(cacheTimeKey, timeNow);
-    }
-    return successResult.body;
-  });
+      if (statusCode === 301 || statusCode === 302) {
+        return sendRequest(successResult.headers.location, requestOptions, postBody);
+      }
+
+      if (data.storeResponse && statusCode >= 200 && statusCode < 300) {
+        templateDataStorage.setItemCopy(cacheKey, successResult.body);
+        templateDataStorage.setItemCopy(cacheTimeKey, timeNow);
+      }
+      return successResult.body;
+    })
+    .catch(() => {});
 }
 
 /*==============================================================================
@@ -123,7 +124,7 @@ function sendRequest(url, requestOptions, postBody) {
 ==============================================================================*/
 
 function mapResponse(bodyString) {
-  if (!data.jsonParse) return bodyString;
+  if (!data.jsonParse || !bodyString) return bodyString;
   const parsedBody = JSON.parse(bodyString);
   if (data.jsonParseKey) {
     return data.jsonParseKeyName.split('.').reduce(function (obj, key) {

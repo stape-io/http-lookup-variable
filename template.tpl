@@ -97,98 +97,76 @@ ___TEMPLATE_PARAMETERS___
   },
   {
     "type": "CHECKBOX",
-    "name": "simpleObject",
-    "checkboxText": "Do not use dot notation",
-    "simpleValueType": true,
-    "help": "By default, you can use dot notation to create a nested request object. \nBut in case you need to create a property that contains a dot then you can use this option for that.",
-    "enablingConditions": [
-      {
-        "paramName": "requestType",
-        "paramValue": "json",
-        "type": "EQUALS"
-      }
-    ]
-  },
-  {
-    "type": "CHECKBOX",
-    "name": "insideArray",
-    "checkboxText": "Put request object inside the array.",
-    "simpleValueType": true,
-    "enablingConditions": [
-      {
-        "paramName": "requestType",
-        "paramValue": "json",
-        "type": "EQUALS"
-      }
-    ]
-  },
-  {
-    "type": "CHECKBOX",
     "name": "jsonParse",
     "checkboxText": "Parse response as JSON",
-    "simpleValueType": true
+    "simpleValueType": true,
+    "subParams": [
+      {
+        "type": "CHECKBOX",
+        "name": "jsonParseKey",
+        "checkboxText": "Extract key from JSON object",
+        "simpleValueType": true,
+        "enablingConditions": [
+          {
+            "paramName": "jsonParse",
+            "paramValue": true,
+            "type": "EQUALS"
+          }
+        ],
+        "subParams": [
+          {
+            "type": "TEXT",
+            "name": "jsonParseKeyName",
+            "displayName": "Key Name",
+            "simpleValueType": true,
+            "enablingConditions": [
+              {
+                "paramName": "jsonParseKey",
+                "paramValue": true,
+                "type": "EQUALS"
+              }
+            ],
+            "valueValidators": [
+              {
+                "type": "NON_EMPTY"
+              }
+            ],
+            "help": "Specify the value of a specific key whose value you want to return. Use dot notation if needed (e.g. \u003ci\u003efoo.id\u003c/i\u003e, \u003ci\u003ebar.0.price\u003c/i\u003e)."
+          }
+        ]
+      }
+    ]
   },
   {
     "type": "CHECKBOX",
     "name": "storeResponse",
     "checkboxText": "Store response in cache",
     "simpleValueType": true,
-    "help": "Store the response in Template Storage. If all parameters of the request are the same response will be taken from the cache if it exists."
-  },
-  {
-    "type": "TEXT",
-    "name": "expirationTime",
-    "displayName": "Cache Expiration Time (Hours)",
-    "simpleValueType": true,
-    "help": "Will update cache if data is expired.",
-    "enablingConditions": [
-      {
-        "paramName": "storeResponse",
-        "paramValue": true,
-        "type": "EQUALS"
-      }
-    ],
-    "valueValidators": [
-      {
-        "type": "POSITIVE_NUMBER"
-      },
-      {
-        "type": "NON_EMPTY"
-      }
-    ],
-    "defaultValue": 12
-  },
-  {
-    "type": "CHECKBOX",
-    "name": "jsonParseKey",
-    "checkboxText": "Extract key from JSON object",
-    "simpleValueType": true,
-    "enablingConditions": [
-      {
-        "paramName": "jsonParse",
-        "paramValue": true,
-        "type": "EQUALS"
-      }
-    ],
+    "help": "Store the response in Template Storage. If all parameters of the request are the same response will be taken from the cache if it exists.",
     "subParams": [
       {
         "type": "TEXT",
-        "name": "jsonParseKeyName",
-        "displayName": "Key Name",
+        "name": "expirationTime",
+        "displayName": "Cache Expiration Time",
         "simpleValueType": true,
+        "help": "It will update the cache if data is expired.",
         "enablingConditions": [
           {
-            "paramName": "jsonParseKey",
+            "paramName": "storeResponse",
             "paramValue": true,
             "type": "EQUALS"
           }
         ],
         "valueValidators": [
           {
+            "type": "POSITIVE_NUMBER"
+          },
+          {
             "type": "NON_EMPTY"
           }
         ],
-        "help": "Specify the value of a specific key whose value you want to return. Use dot notation if needed (e.g. \u003ci\u003efoo.id\u003c/i\u003e, \u003ci\u003ebar.0.price\u003c/i\u003e)."
+        "defaultValue": 12,
+        "valueUnit": "hours"
       }
     ]
   },
@@ -198,6 +176,33 @@ ___TEMPLATE_PARAMETERS___
     "displayName": "Request Data",
     "groupStyle": "ZIPPY_OPEN",
     "subParams": [
+      {
+        "type": "CHECKBOX",
+        "name": "simpleObject",
+        "checkboxText": "Do not use dot notation",
+        "simpleValueType": true,
+        "help": "By default, you can use dot notation to create a nested request object. \nBut in case you need to create a property that contains a dot then you can use this option for that.",
+        "enablingConditions": [
+          {
+            "paramName": "requestType",
+            "paramValue": "json",
+            "type": "EQUALS"
+          }
+        ]
+      },
+      {
+        "type": "CHECKBOX",
+        "name": "insideArray",
+        "checkboxText": "Put request object inside an array",
+        "simpleValueType": true,
+        "enablingConditions": [
+          {
+            "paramName": "requestType",
+            "paramValue": "json",
+            "type": "EQUALS"
+          }
+        ]
+      },
       {
         "type": "LABEL",
         "name": "start",
@@ -314,7 +319,7 @@ const makeTableMap = require('makeTableMap');
 
 let requestHeaders = {};
 let requestBody = {};
-const version = '1.0.6';
+const version = '1.0.7';
 
 if (data.requestMethod !== 'GET') {
   requestHeaders =
@@ -345,7 +350,7 @@ if (data.insideArray && data.requestType === 'json') {
 }
 
 let postBody = null;
-let requestOptions = { headers: requestHeaders, method: data.requestMethod };
+const requestOptions = { headers: requestHeaders, method: data.requestMethod };
 
 if (data.requestMethod !== 'GET') {
   if (data.requestType === 'json') {
@@ -379,22 +384,19 @@ return sendRequest(data.url, requestOptions, postBody).then(mapResponse);
 ==============================================================================*/
 
 function sendRequest(url, requestOptions, postBody) {
-  let cacheKey = sha256Sync(
+  const cacheKey = sha256Sync(
     version + url + JSON.stringify(requestOptions) + postBody + data.jsonParseKeyName
   );
-  let cacheTimeKey = cacheKey + '_timestamp';
-  let timeNow = getTimestampMillis();
+  const cacheTimeKey = cacheKey + '_timestamp';
+  const timeNow = getTimestampMillis();
 
   if (data.storeResponse) {
     let cachedBody = templateDataStorage.getItemCopy(cacheKey);
-    let cachedBodyTimestamp = templateDataStorage.getItemCopy(cacheTimeKey);
+    const cachedBodyTimestamp = templateDataStorage.getItemCopy(cacheTimeKey);
     if (data.expirationTime) {
-      let expiratoinTimeSeconds = makeInteger(data.expirationTime) * 360000; // convert to miliseconds
+      const expirationTime = makeInteger(data.expirationTime) * 3600000;
 
-      if (
-        cachedBodyTimestamp &&
-        timeNow - makeInteger(cachedBodyTimestamp) >= expiratoinTimeSeconds
-      ) {
+      if (cachedBodyTimestamp && timeNow - makeInteger(cachedBodyTimestamp) >= expirationTime) {
         cachedBody = '';
         templateDataStorage.removeItem(cacheKey);
         templateDataStorage.removeItem(cacheTimeKey);
@@ -404,17 +406,21 @@ function sendRequest(url, requestOptions, postBody) {
     if (cachedBody) return Promise.create((resolve) => resolve(cachedBody));
   }
 
-  return sendHttpRequest(url, requestOptions, postBody).then((successResult) => {
-    if (successResult.statusCode === 301 || successResult.statusCode === 302) {
-      return sendRequest(successResult.headers.location, requestOptions, postBody);
-    }
+  return sendHttpRequest(url, requestOptions, postBody)
+    .then((successResult) => {
+      const statusCode = successResult.statusCode;
 
-    if (data.storeResponse) {
-      templateDataStorage.setItemCopy(cacheKey, successResult.body);
-      templateDataStorage.setItemCopy(cacheTimeKey, timeNow);
-    }
-    return successResult.body;
-  });
+      if (statusCode === 301 || statusCode === 302) {
+        return sendRequest(successResult.headers.location, requestOptions, postBody);
+      }
+
+      if (data.storeResponse && statusCode >= 200 && statusCode < 300) {
+        templateDataStorage.setItemCopy(cacheKey, successResult.body);
+        templateDataStorage.setItemCopy(cacheTimeKey, timeNow);
+      }
+      return successResult.body;
+    })
+    .catch(() => {});
 }
 
 /*==============================================================================
@@ -422,7 +428,7 @@ function sendRequest(url, requestOptions, postBody) {
 ==============================================================================*/
 
 function mapResponse(bodyString) {
-  if (!data.jsonParse) return bodyString;
+  if (!data.jsonParse || !bodyString) return bodyString;
   const parsedBody = JSON.parse(bodyString);
   if (data.jsonParseKey) {
     return data.jsonParseKeyName.split('.').reduce(function (obj, key) {
@@ -540,24 +546,15 @@ scenarios:
     const expectedResponseBody = { foo: { bar: [{ abc: '456' }, { cde: 123 }] }, test: 'example' };
     const expectedStringifiedResponseBody = JSON.stringify(expectedResponseBody);
 
-    mock('sendHttpRequest', (requestUrl, requestOptions, requestBody) => {
-      return {
-        then: (requestCallback) => {
-          const response = {
-            statusCode: 200,
-            headers: {},
-            body: expectedStringifiedResponseBody
-          };
-          return {
-            then: (mapCallback) => mapCallback(requestCallback(response))
-          };
-        }
-      };
+    mock('sendHttpRequest', () => {
+      return Promise.create((resolve) =>
+        resolve({ statusCode: 200, headers: {}, body: expectedStringifiedResponseBody })
+      );
     });
 
-    let variableResult = runCode(mockData);
-
-    assertThat(variableResult).isEqualTo(expectedResponseBody);
+    runCode(mockData).then((result) => {
+      assertThat(result).isEqualTo(expectedResponseBody);
+    });
 - name: JSON Response - Top-level key is correctly extracted from response
   code: |-
     mockData.jsonParseKey = true;
@@ -566,24 +563,15 @@ scenarios:
     const expectedResponseBody = { foo: { bar: [{ abc: '456' }, { cde: 123 }] }, test: 'example' };
     const expectedStringifiedResponseBody = JSON.stringify(expectedResponseBody);
 
-    mock('sendHttpRequest', (requestUrl, requestOptions, requestBody) => {
-      return {
-        then: (requestCallback) => {
-          const response = {
-            statusCode: 200,
-            headers: {},
-            body: expectedStringifiedResponseBody
-          };
-          return {
-            then: (mapCallback) => mapCallback(requestCallback(response))
-          };
-        }
-      };
+    mock('sendHttpRequest', () => {
+      return Promise.create((resolve) =>
+        resolve({ statusCode: 200, headers: {}, body: expectedStringifiedResponseBody })
+      );
     });
 
-    let variableResult = runCode(mockData);
-
-    assertThat(variableResult).isEqualTo('example');
+    runCode(mockData).then((result) => {
+      assertThat(result).isEqualTo('example');
+    });
 - name: JSON Response - Dot notation key is correctly extracted from response
   code: |-
     mockData.jsonParseKey = true;
@@ -592,26 +580,348 @@ scenarios:
     const expectedResponseBody = { foo: { bar: [{ abc: '456' }, { cde: 123 }] }, test: 'example' };
     const expectedStringifiedResponseBody = JSON.stringify(expectedResponseBody);
 
-    mock('sendHttpRequest', (requestUrl, requestOptions, requestBody) => {
-      return {
-        then: (requestCallback) => {
-          const response = {
-            statusCode: 200,
-            headers: {},
-            body: expectedStringifiedResponseBody
-          };
-          return {
-            then: (mapCallback) => mapCallback(requestCallback(response))
-          };
-        }
-      };
+    mock('sendHttpRequest', () => {
+      return Promise.create((resolve) =>
+        resolve({ statusCode: 200, headers: {}, body: expectedStringifiedResponseBody })
+      );
     });
 
-    let variableResult = runCode(mockData);
+    runCode(mockData).then((result) => {
+      assertThat(result).isEqualTo('456');
+    });
+- name: Raw String Response Passes Through When JSON Parsing Is Disabled
+  code: |-
+    mockData.jsonParse = false;
 
-    assertThat(variableResult).isEqualTo('456');
+    mock('sendHttpRequest', () => {
+      return Promise.create((resolve) =>
+        resolve({ statusCode: 200, headers: {}, body: 'plain text response' })
+      );
+    });
+
+    runCode(mockData).then((result) => {
+      assertThat(result).isEqualTo('plain text response');
+    });
+- name: Redirect Responses Are Followed To The New Location
+  code: |-
+    mockData.jsonParse = false;
+
+    let requestCount = 0;
+    mock('sendHttpRequest', (requestUrl) => {
+      requestCount++;
+      if (requestCount === 1) {
+        assertThat(requestUrl).isEqualTo('https://example.com');
+        return Promise.create((resolve) =>
+          resolve({
+            statusCode: 302,
+            headers: { location: 'https://example.com/redirected' },
+            body: ''
+          })
+        );
+      }
+      assertThat(requestUrl).isEqualTo('https://example.com/redirected');
+      return Promise.create((resolve) =>
+        resolve({ statusCode: 200, headers: {}, body: 'redirected response' })
+      );
+    });
+
+    runCode(mockData).then((result) => {
+      assertThat(requestCount).isEqualTo(2);
+      assertThat(result).isEqualTo('redirected response');
+    });
+- name: Cache Is Reused When No Expiration Time Is Configured
+  code: |-
+    mockData.jsonParse = false;
+    mockData.storeResponse = true;
+
+    let requestCount = 0;
+    mock('sendHttpRequest', () => {
+      requestCount++;
+      return Promise.create((resolve) =>
+        resolve({ statusCode: 200, headers: {}, body: 'fresh response' })
+      );
+    });
+
+    const storage = {};
+    mockObject('templateDataStorage', {
+      getItemCopy: (key) => (storage.hasOwnProperty(key) ? storage[key] : null),
+      setItemCopy: (key, value) => {
+        storage[key] = value;
+      },
+      removeItem: (key) => {
+        storage[key] = null;
+      }
+    });
+
+    runCode(mockData).then((firstResult) => {
+      return runCode(mockData).then((secondResult) => {
+        assertThat(requestCount).isEqualTo(1);
+        assertThat(firstResult).isEqualTo('fresh response');
+        assertThat(secondResult).isEqualTo('fresh response');
+      });
+    });
+- name: Cache Is Reused Within The Configured Expiration Window
+  code: |-
+    mockData.jsonParse = false;
+    mockData.storeResponse = true;
+    mockData.expirationTime = 12;
+
+    let requestCount = 0;
+    mock('sendHttpRequest', () => {
+      requestCount++;
+      return Promise.create((resolve) =>
+        resolve({ statusCode: 200, headers: {}, body: 'cached response' })
+      );
+    });
+
+    const storage = {};
+    mockObject('templateDataStorage', {
+      getItemCopy: (key) => (storage.hasOwnProperty(key) ? storage[key] : null),
+      setItemCopy: (key, value) => {
+        storage[key] = value;
+      },
+      removeItem: (key) => {
+        storage[key] = null;
+      }
+    });
+
+    const baseTime = 1700000000000;
+    mock('getTimestampMillis', () => baseTime);
+
+    runCode(mockData).then(() => {
+      // 11 hours later, still inside the 12 hour window.
+      mock('getTimestampMillis', () => baseTime + 11 * 3600000);
+
+      return runCode(mockData).then((secondResult) => {
+        assertThat(requestCount).isEqualTo(1);
+        assertThat(secondResult).isEqualTo('cached response');
+      });
+    });
+- name: Cache Expires After The Configured Expiration Window
+  code: |-
+    mockData.jsonParse = false;
+    mockData.storeResponse = true;
+    mockData.expirationTime = 12;
+
+    let requestCount = 0;
+    mock('sendHttpRequest', () => {
+      requestCount++;
+      const body = requestCount === 1 ? 'cached response' : 'refreshed response';
+      return Promise.create((resolve) => resolve({ statusCode: 200, headers: {}, body: body }));
+    });
+
+    const storage = {};
+    mockObject('templateDataStorage', {
+      getItemCopy: (key) => (storage.hasOwnProperty(key) ? storage[key] : null),
+      setItemCopy: (key, value) => {
+        storage[key] = value;
+      },
+      removeItem: (key) => {
+        storage[key] = null;
+      }
+    });
+
+    const baseTime = 1700000000000;
+    mock('getTimestampMillis', () => baseTime);
+
+    runCode(mockData).then(() => {
+      // 13 hours later, past the 12 hour window.
+      mock('getTimestampMillis', () => baseTime + 13 * 3600000);
+
+      return runCode(mockData).then((secondResult) => {
+        assertThat(requestCount).isEqualTo(2);
+        assertThat(secondResult).isEqualTo('refreshed response');
+      });
+    });
+- name: Non Success Status Code Response Is Not Cached
+  code: |-
+    mockData.jsonParse = false;
+    mockData.storeResponse = true;
+
+    let requestCount = 0;
+    mock('sendHttpRequest', () => {
+      requestCount++;
+      return Promise.create((resolve) =>
+        resolve({ statusCode: 500, headers: {}, body: 'server error' })
+      );
+    });
+
+    const storage = {};
+    mockObject('templateDataStorage', {
+      getItemCopy: (key) => (storage.hasOwnProperty(key) ? storage[key] : null),
+      setItemCopy: (key, value) => {
+        storage[key] = value;
+      },
+      removeItem: (key) => {
+        storage[key] = null;
+      }
+    });
+
+    runCode(mockData).then((firstResult) => {
+      return runCode(mockData).then((secondResult) => {
+        assertThat(requestCount).isEqualTo(2);
+        assertThat(firstResult).isEqualTo('server error');
+        assertThat(secondResult).isEqualTo('server error');
+      });
+    });
+- name: POST Request With JSON Body Uses Dot Notation To Build A Nested Object
+  code: |-
+    mockData.requestMethod = 'POST';
+    mockData.requestType = 'json';
+    mockData.jsonParse = false;
+    mockData.data = [
+      { key: 'user.id', value: '123' },
+      { key: 'user.name', value: 'Jane' },
+      { key: 'flag', value: 'true' }
+    ];
+
+    mock('sendHttpRequest', (requestUrl, requestOptions, requestBody) => {
+      assertThat(requestOptions.method).isEqualTo('POST');
+      assertThat(requestOptions.headers['Content-Type']).isEqualTo('application/json');
+      assertThat(JSON.parse(requestBody)).isEqualTo({
+        user: { id: '123', name: 'Jane' },
+        flag: 'true'
+      });
+      return Promise.create((resolve) => resolve({ statusCode: 200, headers: {}, body: 'ok' }));
+    });
+
+    runCode(mockData).then((result) => {
+      assertThat(result).isEqualTo('ok');
+    });
+- name: POST Request With JSON Body And Simple Object Flag Keeps Flat Keys
+  code: |-
+    mockData.requestMethod = 'POST';
+    mockData.requestType = 'json';
+    mockData.jsonParse = false;
+    mockData.simpleObject = true;
+    mockData.data = [{ key: 'user.id', value: '123' }];
+
+    mock('sendHttpRequest', (requestUrl, requestOptions, requestBody) => {
+      assertThat(JSON.parse(requestBody)).isEqualTo({ 'user.id': '123' });
+      return Promise.create((resolve) => resolve({ statusCode: 200, headers: {}, body: 'ok' }));
+    });
+
+    runCode(mockData).then((result) => {
+      assertThat(result).isEqualTo('ok');
+    });
+- name: POST Request With JSON Body Inside An Array
+  code: |-
+    mockData.requestMethod = 'POST';
+    mockData.requestType = 'json';
+    mockData.jsonParse = false;
+    mockData.insideArray = true;
+    mockData.data = [{ key: 'id', value: '1' }];
+
+    mock('sendHttpRequest', (requestUrl, requestOptions, requestBody) => {
+      assertThat(JSON.parse(requestBody)).isEqualTo([{ id: '1' }]);
+      return Promise.create((resolve) => resolve({ statusCode: 200, headers: {}, body: 'ok' }));
+    });
+
+    runCode(mockData).then((result) => {
+      assertThat(result).isEqualTo('ok');
+    });
+- name: PUT Request With Form Data Body Is Url Encoded
+  code: |-
+    mockData.requestMethod = 'PUT';
+    mockData.requestType = 'form';
+    mockData.jsonParse = false;
+    mockData.data = [
+      { key: 'a', value: '1' },
+      { key: 'b', value: 'x y' }
+    ];
+
+    mock('sendHttpRequest', (requestUrl, requestOptions, requestBody) => {
+      assertThat(requestOptions.method).isEqualTo('PUT');
+      assertThat(requestOptions.headers['Content-Type']).isEqualTo('application/x-www-form-urlencoded');
+      assertThat(requestBody).isEqualTo('a=1&b=x%20y');
+      return Promise.create((resolve) => resolve({ statusCode: 200, headers: {}, body: 'ok' }));
+    });
+
+    runCode(mockData).then((result) => {
+      assertThat(result).isEqualTo('ok');
+    });
+- name: Custom Headers Are Merged Into The Request And Can Override Defaults
+  code: |-
+    mockData.requestMethod = 'POST';
+    mockData.requestType = 'json';
+    mockData.jsonParse = false;
+    mockData.headers = [
+      { key: 'X-Api-Key', value: 'secret' },
+      { key: 'Content-Type', value: 'application/vnd.api+json' }
+    ];
+
+    mock('sendHttpRequest', (requestUrl, requestOptions, requestBody) => {
+      assertThat(requestOptions.headers['X-Api-Key']).isEqualTo('secret');
+      assertThat(requestOptions.headers['Content-Type']).isEqualTo('application/vnd.api+json');
+      return Promise.create((resolve) => resolve({ statusCode: 200, headers: {}, body: 'ok' }));
+    });
+
+    runCode(mockData).then((result) => {
+      assertThat(result).isEqualTo('ok');
+    });
+- name: Request Timeout Option Is Applied When Provided
+  code: |-
+    mockData.jsonParse = false;
+    mockData.requestTimeout = '5000';
+
+    mock('sendHttpRequest', (requestUrl, requestOptions) => {
+      assertThat(requestOptions.timeout).isEqualTo(5000);
+      return Promise.create((resolve) => resolve({ statusCode: 200, headers: {}, body: 'ok' }));
+    });
+
+    runCode(mockData).then((result) => {
+      assertThat(result).isEqualTo('ok');
+    });
+- name: Missing JSON Parse Key Returns Undefined
+  code: |-
+    mockData.jsonParseKey = true;
+    mockData.jsonParseKeyName = 'missing.path';
+
+    const responseBody = JSON.stringify({ foo: 'bar' });
+
+    mock('sendHttpRequest', () => {
+      return Promise.create((resolve) => resolve({ statusCode: 200, headers: {}, body: responseBody }));
+    });
+
+    runCode(mockData).then((result) => {
+      assertThat(result).isEqualTo(undefined);
+    });
+- name: Request Failure Resolves To Undefined When JSON Parsing Is Enabled
+  code: |-
+    mockData.jsonParse = true;
+
+    mock('sendHttpRequest', () => {
+      return Promise.create((resolve, reject) => reject({ reason: 'failed' }));
+    });
+
+    runCode(mockData).then((result) => {
+      assertThat(result).isEqualTo(undefined);
+    });
+- name: Request Failure Resolves To Undefined When JSON Parsing Is Disabled
+  code: |-
+    mockData.jsonParse = false;
+
+    mock('sendHttpRequest', () => {
+      return Promise.create((resolve, reject) => reject({ reason: 'failed' }));
+    });
+
+    runCode(mockData).then((result) => {
+      assertThat(result).isEqualTo(undefined);
+    });
+- name: Empty Response Body Is Returned As Is When JSON Parsing Is Enabled
+  code: |-
+    mockData.jsonParse = true;
+
+    mock('sendHttpRequest', () => {
+      return Promise.create((resolve) => resolve({ statusCode: 200, headers: {}, body: '' }));
+    });
+
+    runCode(mockData).then((result) => {
+      assertThat(result).isEqualTo('');
+    });
 setup: |-
   const JSON = require('JSON');
+  const Promise = require('Promise');
 
   const mockData = {
     requestMethod: 'GET',
@@ -621,6 +931,12 @@ setup: |-
 
 
 ___NOTES___
+
+2026-09-16 - Change Notes:
+  - Fix cache expiration time being calculated 10x too short (wrong ms conversion factor) and skip caching non-2xx responses; bump version to 1.0.7
+  - Guard response parsing against empty/failed request bodies so a failed or empty request resolves safely instead of throwing
+  - Reorganize template parameters (cache expiration under Store Response, key extraction under Parse Response, dot-notation/array options under Request Data) with minor help text wording updates
+  - Add comprehensive unit test coverage for caching, redirects, request building, and failure paths
 
 2026-05-21 Change Notes:
  - Console logging removal.
