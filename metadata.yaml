@@ -1,6 +1,8 @@
 homepage: 'https://stape.io/'
 documentation: 'https://github.com/stape-io/http-lookup-variable'
 versions:
+  - sha: a2179e994f394df78c5d2ecb6b23069a812ebc12
+    changeNotes: Fix cache expiration math and non-2xx response caching.
   - sha: 8891d4d716ed3709d3675000b04dab7246918a72
     changeNotes: Console logging removal.
   - sha: 0e816a5d484aab5aab6aa59b85f53baec51b4064
